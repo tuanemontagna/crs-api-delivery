@@ -1,4 +1,6 @@
+import fs from "fs";
 import Product from '../models/ProductModel.js';
+import uploadFile from '../utils/uploadFile.js';
 
 const get = async (req, res) => {
   try {
@@ -36,46 +38,80 @@ const get = async (req, res) => {
   }
 }
 
-const create = async (corpo) => {
+const create = async (corpo, req, res) => {
   try {
+    
     const {
       name,
       price,
       description,
-      image,
       idCategories
     } = corpo
 
-    const response = await Product.create({
-        name,
-        price,
-        description,
-        image,
-        idCategories
+    const createdProduct = await Product.create({
+      name,
+      price,
+      description,
+      idCategories
     });
+    
+    const imageProduct = req.files?.imageProduct;
+        
+    if(imageProduct) {
+        const upload = await uploadFile(
+            imageProduct,
+            { id: createdProduct.id, tipo: 'image', tabela: 'product' },
+            res
+        );
+        console.log(upload.type);
+        
+        if (upload.type === 'error') {
+            await createdProduct.destroy(); 
+            return res.send({ 
+                message: upload.message
+            });
+        }
 
-    return response;
+        const image = upload.message.replace('public/', '');
+        createdProduct.image = image;
+    }
+
+    await createdProduct.save();
+    return createdProduct;
+
   } catch (error) {
     throw new Error(error.message)
   }
 }
 
-const update = async (corpo, id) => {
+const update = async (corpo, id, req) => {
   try {
-    const response = await Product.findOne({
-      where: {
-        id
+    const response = await Product.findOne({ where: { id } });
+
+    if (req.files && req.files.imageProduct) {
+      const imageProduct = req.files.imageProduct;
+      const upload = await uploadFile(imageProduct, { id: Date.now(), tipo: 'image', tabela: 'product' });
+
+      if (upload.type === 'erro') {
+          throw new Error(upload.message);
       }
+
+      if (response.image) {
+          fs.unlinkSync(`./public/${response.image}`);
+      }
+
+      response.image = upload.message.replace('public/', '');
+    }
+        
+    Object.keys(corpo).forEach((item) => {
+        if (item !== 'image') {
+            response[item] = corpo[item];
+        }
     });
 
-    if (!response) {
-      throw new Error('Nao achou');
-    }
-    
-    Object.keys(corpo).forEach((item) => response[item] = corpo[item]);
     await response.save();
-
     return response;
+
   } catch (error) {
     throw new Error(error.message)
   }
@@ -84,9 +120,9 @@ const update = async (corpo, id) => {
 const persist = async (req, res) => {
   try {
     const id = req.params.id ? req.params.id.toString().replace(/\D/g, '') : null;
-
+    
     if (!id) {
-      const response = await create(req.body);
+      const response = await create(req.body, req, res);
       return res.status(201).send({
         message: 'criado com sucesso!',
         data: response

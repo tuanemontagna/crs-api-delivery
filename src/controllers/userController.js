@@ -92,7 +92,7 @@ const login = async (req, res) => {
 
         if(!user) {
             return res.status(400).send({
-                message: 'User ou senha incorretos'
+                message: 'User ou senha icreateParentPathncorretos'
             });
         }
 
@@ -302,8 +302,6 @@ const redefinirSenha = async (req, res) => {
         return res.status(200).send({
             message: 'senha redefinida com sucesso',
         });
-        
-
 
     } catch (error) {
         return res.status(500).send({

@@ -6,6 +6,7 @@ import morgan from 'morgan';
 import cors from 'cors'
 import { dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import fileUpload from 'express-fileupload'
 import './models/index.js';
 
 import Routes from './routes/index.js';
@@ -32,6 +33,14 @@ app.use(cors(corsOptions));
 app.use(morgan('combined', { stream: logStream }));
 app.use(express.json({ limit: '50mb'}));
 app.use(express.urlencoded({ extended: true, limit: '50mb'}));
+app.use(fileUpload({
+  createParentPath: true,
+  safeFileNames: true,
+  preserveExtension: true,
+  uriDecodeFileNames: true,
+  debug: true,
+  limits: { fileSize: 50 * 1024 * 1024}
+}));
 
 Routes(app);
 app.use((req, res) => {

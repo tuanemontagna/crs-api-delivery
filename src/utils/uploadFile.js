@@ -16,11 +16,9 @@ export default async (file, params, res) => {
         const __dirname = dirname(fileURLToPath(import.meta.url));
 
         let extensao = path.extname(file.name).toLowerCase();  
-        console.log("extensão do arquivo:", extensao);
 
         const validarExtensao = ['.jpg', '.jpeg', '.png'];
         if (!validarExtensao.includes(extensao)) {
-            console.log("arquivo não permitido");
             return res.status(400).send({
                 message: "apenas arquivos de imagem sao aceitos"
             });
@@ -36,8 +34,8 @@ export default async (file, params, res) => {
         }
 
     } catch (error) {
-        console.error(error);
         return res.status(500).send({
+            type: 'error',
             message: error.message
         });
     }

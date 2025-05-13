@@ -1,8 +1,9 @@
 import userController from "../controllers/userController.js";
+import autenticarUserMiddleware from "../middlewares/autenticarUserMiddleware.js";
 
 export default (app) => {
     app.get('/user', userController.get);
-    app.get('/user/get-data-by-token', userController.getDataByToken);
+    app.get('/user/get-data-by-token', autenticarUserMiddleware, userController.getDataByToken);
     app.get('/user/:id', userController.get);
     app.post('/user', userController.persist);
     app.post('/user/login', userController.login);

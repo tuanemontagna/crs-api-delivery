@@ -39,15 +39,17 @@ const get = async (req, res) => {
 const create = async (corpo) => {
   try {
     const {
-      nome,
-      cpf,
-      dataNascimento
+      code,
+      type,
+      value,
+      uses
     } = corpo
 
     const response = await Cupom.create({
-      nome,
-      cpf,
-      dataNascimento
+      code,
+      type,
+      value,
+      uses
     });
 
     return response;

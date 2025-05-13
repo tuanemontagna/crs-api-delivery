@@ -51,9 +51,9 @@ Order.belongsTo(User, {
     onUpdate: 'NO ACTION',
     onDelete: 'SET NULL',
     foreignKey: {
-      name: 'idUserDelive',
+      name: 'idUserDelivery',
       allowNull: true,
-      field: 'id_user_delive',
+      field: 'id_user_delivery',
     }
 });
 
