@@ -133,9 +133,48 @@ const destroy = async (req, res) => {
   }
 }
 
+const validarCupom = async (req, res) => {
+  try {
+    const { 
+      code 
+    } = req.body;  
+
+    const cupom = await Cupom.findOne({ 
+      where: { 
+        code 
+      } 
+    });
+
+    if (!cupom) {
+      return res.status(404).send({ 
+        message: 'Cupom não encontrado.' 
+      });
+    }
+
+    if (cupom.uses <= 0) {
+      return res.status(400).send({ 
+        message: 'Este cupom foi esgotado.' 
+      });
+    }
+
+    return res.status(200).send({
+      message: 'Cupom válido.',
+      data: {
+        code: cupom.code,
+        type: cupom.type,
+        value: cupom.value,
+      },
+    });
+  } catch (error) {
+    return res.status(500).send({ 
+      message: error.message 
+    });
+  }
+};
 
 export default {
   get,
   persist,
   destroy,
+  validarCupom,
 }

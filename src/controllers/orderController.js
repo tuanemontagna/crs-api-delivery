@@ -2,6 +2,7 @@ import Order from '../models/OrderModel.js';
 import Cupom from '../models/CupomModel.js';
 import User from '../models/UserModel.js';
 import OrderProduct from '../models/OrderProductModel.js';
+import Product from '../models/ProductModel.js';
 
 const get = async (req, res) => {
   try {
@@ -39,40 +40,54 @@ const get = async (req, res) => {
   }
 }
 
-const calcularTotal = async (usuario, idCupom) => {
-  if (!usuario || !usuario.cart || usuario.cart.length === 0) {
-    throw new Error('Carrinho vazio');
-  }
+const calcularTotal = async (response, idCupom) => {
+  try {
+    if (!response || !response.cart || response.cart.length === 0) {
+      throw new Error('Carrinho vazio');
+    }
+    console.log(response.cart);
+    
+    let total = 0;
 
-  let total = 0;
+    response.cart.forEach(item => {
+      total += item.priceProducts * item.quantity;
+    });
 
-  usuario.cart.forEach(item => {
-    total += item.preco * item.quantidade;
-  });
+    let totalDiscount = total;
 
-  let totalDiscount = total;
+    if (idCupom) {
+      const cupom = await Cupom.findOne({ where: { id: idCupom } });
 
-  if (idCupom) {
-    const cupom = await Cupom.findOne({ where: { id: idCupom } });
+      if (!cupom) {
+        throw new Error('Cupom inválido');
+      }
 
-    if (cupom) {
-      if (cupom.tipo === 'porcentagem') {
-        totalDiscount = total - (total * (cupom.valor / 100));
-      } else if (cupom.tipo === 'fixo') {
-        totalDiscount = total - cupom.valor;
+      if (cupom.uses <= 0) {
+        throw new Error('Cupom esgotado');
+      }
+
+      if (cupom.type === 'porcentagem') {
+        totalDiscount = total - (total * (cupom.value / 100));
+      } else if (cupom.type === 'fixo') {
+        totalDiscount = total - cupom.value;
       }
 
       if (totalDiscount < 0) totalDiscount = 0;
-    } else {
-      throw new Error('Cupom inválido');
-    }
-  }
 
-  return { total, totalDiscount };
+      cupom.uses -= 1;
+      await cupom.save();
+    }
+
+    return { total, totalDiscount };
+  } catch (error) {
+      throw new Error(error.message); 
+  }
 };
 
 const create = async (corpo, res) => {
   try {
+    console.log(corpo);
+    
     const { 
       idUserCustomer,
       idAdress, 
@@ -81,14 +96,19 @@ const create = async (corpo, res) => {
       status,
     } = corpo;
   
-    const usuario = await User.findOne({ where: { id: idUserCustomer } });
-    if (!usuario || !usuario.cart || usuario.cart.length === 0) {
+    const response = await User.findOne({ 
+      where: { 
+        id: idUserCustomer 
+      } 
+    });
+
+    if (!response || !response.cart || response.cart.length === 0) {
       return res.status(400).send({ 
         message: 'Carrinho vazio' 
       });
     }
 
-    const { total, totalDiscount } = await calcularTotal(usuario, idCupom);
+    const { total, totalDiscount } = await calcularTotal(response, idCupom); 
 
     const novoPedido = await Order.create({
       status,
@@ -99,52 +119,80 @@ const create = async (corpo, res) => {
       idCupom,
       idPayment
     });
-    
+
     console.log(novoPedido);
   
-    for (const item of usuario.cart) {
+    for (const item of response.cart) {
       await OrderProduct.create({
-        priceProducts: item.preco,
-        quantity: item.quantidade,
+        priceProducts: item.priceProducts,
+        quantity: item.quantity,
         idOrder: novoPedido.id,
-        idProduct: item.idProduto
+        idProduct: item.idProduct
       });
     }
 
-    usuario.cart = [];
-    await usuario.save();
+    response.cart = [];
+    await response.save();
 
     return res.status(201).send({
       message: 'Compra registrada com sucesso!',
       data: novoPedido
     });
+
   } catch (error) {
     return res.status(500).send({
       message: error.message
     });
   }
-}
+};
 
 const update = async (corpo, id) => {
   try {
-    const response = await Order.findOne({
-      where: {
-        id
-      }
+    const pedido = await Order.findOne({
+      where: { id }
     });
 
-    if (!response) {
-      throw new Error('Nao achou');
+    if (!pedido) {
+      throw new Error('Pedido não encontrado');
     }
-    
-    Object.keys(corpo).forEach((item) => response[item] = corpo[item]);
-    await response.save();
 
-    return response;
+    const user = await User.findOne({
+      where: { id: corpo.idUserCustomer || pedido.idUserCustomer }
+    });
+
+    if (!user || !user.cart || user.cart.length === 0) {
+      throw new Error('Carrinho vazio ou usuário inválido');
+    }
+
+    const { total, totalDiscount } = await calcularTotal(user, corpo.idCupom || pedido.idCupom);
+
+    pedido.total = total;
+    pedido.totalDiscount = totalDiscount;
+
+    Object.keys(corpo).forEach((key) => {
+      pedido[key] = corpo[key];
+    });
+
+    await pedido.save();
+
+    await OrderProduct.destroy({
+      where: { idOrder: pedido.id }
+    });
+
+    for (const item of user.cart) {
+      await OrderProduct.create({
+        priceProducts: item.priceProducts,
+        quantity: item.quantity,
+        idOrder: pedido.id,
+        idProduct: item.idProduct
+      });
+    }
+
+    return pedido;
   } catch (error) {
-    throw new Error(error.message)
+    throw new Error(error.message);
   }
-}
+};
 
 const persist = async (req, res) => {
   try {
@@ -202,9 +250,51 @@ const destroy = async (req, res) => {
   }
 }
 
+const historicoPedidos = async (req, res) => {
+  try {
+    const { idUserCustomer } = req.params;
+
+    const pedidos = await Order.findAll({
+      where: { idUserCustomer },
+      order: [['createdAt', 'desc']],
+      include: [
+        {
+          model: OrderProduct,
+          as: 'orderProducts',
+          include: [
+            {
+              model: Product,
+              as: 'product',
+              attributes: ['id', 'name', 'price', 'description', 'image']
+            }
+          ]
+        }
+      ]
+    });
+
+    if (!pedidos || pedidos.length === 0) {
+      return res.status(404).send({
+        message: 'Nenhum pedido encontrado para este cliente.'
+      });
+    }
+
+    return res.status(200).send({
+      message: 'Histórico de pedidos encontrado.',
+      data: pedidos
+    });
+
+  } catch (error) {
+    return res.status(500).send({
+      message: error.message
+    });
+  }
+};
+
+
 export default {
   get,
   persist,
   destroy,
   calcularTotal,
+  historicoPedidos,
 }

@@ -135,6 +135,8 @@ const destroy = async (req, res) => {
 
 export default {
   get,
+  create,
+  update,
   persist,
   destroy,
 }

@@ -10,5 +10,7 @@ export default (app) => {
     app.post('/user/esqueci-minha-senha', userController.recuperarSenha);
     app.post('/user/redefinir-senha', userController.redefinirSenha);
     app.patch('/user/:id', userController.persist);
+    app.put('/user/:id/trocar-senha', userController.trocarSenha);
+    app.delete('/user/:id/limpar-carrinho', userController.esvaziarCarrinho);
     app.delete('/user/:id', userController.destroy);
 }
