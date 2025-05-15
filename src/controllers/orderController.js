@@ -2,7 +2,7 @@ import Order from '../models/OrderModel.js';
 import Cupom from '../models/CupomModel.js';
 import User from '../models/UserModel.js';
 import OrderProduct from '../models/OrderProductModel.js';
-import Product from '../models/ProductModel.js';
+import { sequelize } from '../config/postgres.js';
 
 const get = async (req, res) => {
   try {
@@ -253,23 +253,35 @@ const destroy = async (req, res) => {
 const historicoPedidos = async (req, res) => {
   try {
     const { idUserCustomer } = req.params;
+    console.log(req.params.idUserCustomer);
 
-    const pedidos = await Order.findAll({
-      where: { idUserCustomer },
-      order: [['createdAt', 'desc']],
-      include: [
-        {
-          model: OrderProduct,
-          as: 'orderProducts',
-          include: [
-            {
-              model: Product,
-              as: 'product',
-              attributes: ['id', 'name', 'price', 'description', 'image']
-            }
-          ]
-        }
-      ]
+    const pedidos = await sequelize.query(`
+      SELECT 
+          o.id AS order_id,
+          o.status,
+          o.total,
+          o.total_discount,
+          o.created_at AS order_created_at,
+    
+          op.id AS order_product_id,
+          op.quantity,
+          op.price_products,
+    
+          p.id AS product_id,
+          p.name AS product_name,
+          p.price AS product_price,
+          p.description AS product_description,
+          p.image AS product_image
+    
+        FROM orders o
+        JOIN orders_products op ON op.id_order = o.id
+        JOIN products p ON p.id = op.id_product
+    
+        WHERE o.id_user_customer = :idUserCustomer
+        ORDER BY o.created_at DESC;
+    `, {
+      replacements: { idUserCustomer },
+      type: sequelize.QueryTypes.SELECT
     });
 
     if (!pedidos || pedidos.length === 0) {
@@ -289,7 +301,6 @@ const historicoPedidos = async (req, res) => {
     });
   }
 };
-
 
 export default {
   get,

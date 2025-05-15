@@ -12,6 +12,7 @@ const OrderProduct = sequelize.define(
             autoIncrement: true,
         },
         priceProducts: {
+            field: 'price_products',
             type: DataTypes.DECIMAL,
             allowNull: false
         },
