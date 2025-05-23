@@ -52,9 +52,14 @@ const create = async (corpo) => {
   } = corpo;
 
   const verificaEmail = await User.findOne({ where: { email } });
+  const verificaUserName = await User.findOne({ where: { userName } });
 
   if (verificaEmail) {
     throw new Error('Já existe um usuário com esse email');
+  }
+
+  if (verificaUserName) {
+    throw new Error('Já existe um usuário com esse userName');
   }
 
   const passwordHash = await bcrypt.hash(password, 10);
@@ -122,8 +127,7 @@ const getDataByToken = async (req, res) => {
 
         const user = await User.findOne({
             where: {id: usuario.idUser},
-        });
-
+        })
         if(!user) {
             return res.status(404).send({ 
                 message: 'user nao encontrado' 
@@ -134,6 +138,7 @@ const getDataByToken = async (req, res) => {
             data: {
                 nome: user.nome,
                 email: user.email,
+                id: user.id
             }
         })
 

@@ -171,9 +171,48 @@ const destroy = async (req, res) => {
   }
 }
 
+const getByCategory = async (req, res) => {
+  try {
+    const idCategory = req.params.idCategory ? req.params.idCategory.toString().replace(/\D/g, '') : null;
+
+    if (!idCategory) {
+      return res.status(400).send({
+        message: 'Informe o id da categoria'
+      });
+    }
+
+    const response = await Product.findAll({
+      where: { idCategories: idCategory },
+      order: [['id', 'desc']],
+    });
+
+    if (!response || response.length === 0) {
+      return res.status(404).send({
+        message: 'Nenhum produto encontrado para esta categoria'
+      });
+    }
+
+    if (!response) {
+      return res.status(404).send({
+        message: 'Nenhum produto encontrado para esta categoria'
+      });
+    }
+
+    return res.status(200).send({
+      message: 'Produtos encontrados',
+      data: response,
+    });
+  } catch (error) {
+     return res.status(500).send({
+      message: error.message
+    });
+  }
+}
+
 
 export default {
   get,
   persist,
   destroy,
+  getByCategory,
 }
