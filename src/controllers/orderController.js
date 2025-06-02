@@ -123,6 +123,7 @@ const create = async (corpo, res) => {
     console.log(novoPedido);
   
     for (const item of response.cart) {
+      console.log(item)
       await OrderProduct.create({
         priceProducts: item.priceProducts,
         quantity: item.quantity,
